@@ -1,0 +1,6 @@
+# gitignore
+## - a file specifies intentionally untracked files that Git should ignore
+## - files already tracked by Git are not affected
+## - each line in a gitignore file specifies a pattern
+
+dataset/
