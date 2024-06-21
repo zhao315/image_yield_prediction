@@ -62,7 +62,7 @@ if __name__ == "__main__":
     # training data
     img_dirs = [ "../dataset/images/2020",  "../dataset/images/2021"]
     yield_dirs = [ "../dataset/yields/2020", "../dataset/yields/2021" ]
-    defol_days = [ "20200713", "202110727" ]
+    defol_days = [ "20200713", "20210727" ]
 
    # test data 
     test_img_dir = "../dataset/images/2022" 
