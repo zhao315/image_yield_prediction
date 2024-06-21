@@ -109,13 +109,13 @@ if __name__ == "__main__":
     from torch.utils.data import ConcatDataset
     concat_dataset = ConcatDataset([cotton_dataset_2020, cotton_dataset_2021])
 
-    # print(len(concat_dataset))
+    print(len(concat_dataset))
 
     cotton_loader = DataLoader(concat_dataset, batch_size=16, shuffle=True)
     image, target = next(iter(cotton_loader))
 
     print(image.shape)
-    # print(target)
-    # print(image.max())
-    # print(image.min())
+    print(target)
+    print(image.max())
+    print(image.min())
     

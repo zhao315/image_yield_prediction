@@ -35,119 +35,147 @@ class ConttonModel(nn.Module):
     
 
 if __name__ == "__main__":
-    model = ConttonModel()
-
     from cotton_dataset import CottonDataset
     from torch.utils.data import DataLoader, ConcatDataset, random_split
-    from torchvision.transforms import Normalize
-    from tqdm import trange
+    from torchvision import transforms
+    from tqdm import trange, tqdm
     
-    img_dirs = [ "dataset/images/2020",  "dataset/images/2021"]
-    yield_dirs = [ "dataset/yields/2020", "dataset/yields/2021" ]
-    defol_days = [ "20200713", "202010727" ]
+    import matplotlib.pyplot as plt
+    from matplotlib_inline.backend_inline import set_matplotlib_formats
+    set_matplotlib_formats("pdf")
+
+    import numpy as np
+    from sklearn.metrics import mean_squared_error
+
+    # hyper-parameters
+    #############################################################################################
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    num_epochs = 2
+    batch_size = 16
+    lr = 1e-6
+
+    transform = transforms.Compose([
+        transforms.Normalize((0), (255)),
+        transforms.RandomHorizontalFlip(),
+    ])
+
+    # training data
+    img_dirs = [ "../dataset/images/2020",  "../dataset/images/2021"]
+    yield_dirs = [ "../dataset/yields/2020", "../dataset/yields/2021" ]
+    defol_days = [ "20200713", "202110727" ]
+
+   # test data 
+    test_img_dir = "../dataset/images/2022" 
+    test_yield_dir = "../dataset/yields/2022"
+    test_defol_day = "20220719" 
+    #############################################################################################
+
 
     datasets = []
     for img_dir, yield_dir, defol_day in zip(img_dirs, yield_dirs, defol_days):
-        datasets.append(CottonDataset(img_dir=img_dir, yield_dir=yield_dir, defol=defol_day, normalize=True, img_transform=Normalize((0), (255))))
+        datasets.append(CottonDataset(img_dir=img_dir, yield_dir=yield_dir, defol=defol_day, normalize=True, img_transform=transform))
     datasets = ConcatDataset(datasets)
     
-    # data_loader = DataLoader(
-        # dataset=datasets, batch_size=16, shuffle=True, num_workers=16
-    # )
-
-    # train and validation split
-    seed = torch.Generator().manual_seed(412)
+    # split data: 0.8 to 0.2
+    seed = torch.Generator().manual_seed(421)
     train_size = int(len(datasets) * 0.8)
-    val_size = len(datasets) - train_size
+    val_size =  int(len(datasets)) - train_size
     train_set, val_set = random_split(datasets, [train_size, val_size], generator=seed)
-    train_loader = DataLoader(
-        train_set, batch_size=16, shuffle=True, num_workers=16
-    )
-    val_loader= DataLoader(
-        val_set, batch_size=16, shuffle=False, num_workers=16
-    )
 
-    device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
-    print(f"using device: {device}")
+    train_loader = DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True, num_workers=4)
+    val_loader = DataLoader(dataset=val_set, batch_size=batch_size, shuffle=False, num_workers=4)
 
-    
-
+    model = ConttonModel()
     loss_fn = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-6)
-    num_epochs = 2
+    optimizer = optim.SGD(model.parameters(), lr=lr)
 
-
+    # training
     total_train_loss = []
     total_val_loss = []
-
-    # train
     model.to(device)
+
     for epoch in trange(num_epochs):
+        # training process
         model.train()
         epoch_train_loss = 0.0
-        for idx, data in enumerate(train_loader, 0):
+
+        train_process_bar = tqdm(train_loader)
+        for idx, data in enumerate(train_process_bar, 0):
             inputs, target = data
             inputs = inputs.to(device, dtype=torch.float32)
             target = target.to(device, dtype=torch.float32)
 
             outputs = model(inputs)
             loss = loss_fn(outputs.view_as(target), target)
+
             epoch_train_loss += loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            print(f"Epoch {idx + 1}/{num_epochs}...... train_loss: {loss:.3f}")
-        total_train_loss.append(epoch_train_loss / (idx + 1)) 
+            train_process_bar.set_description(f"Epoch {idx + 1}/{epoch}......train loss: {loss:.3f}")
+        total_train_loss.append(epoch_train_loss / (idx + 1))
 
+        # validation process
         model.eval()
         epoch_val_loss = 0.0
+
+        val_process_bar= tqdm(val_loader)
         with torch.no_grad():
-            for idx, data in enumerate(val_loader, 0):
+            for idx, data in enumerate(val_process_bar, 0):
                 inputs, target = data
                 inputs = inputs.to(device, dtype=torch.float32)
                 target = target.to(device, dtype=torch.float32)
 
                 outputs = model(inputs)
                 loss = loss_fn(outputs.view_as(target), target)
+
                 epoch_val_loss += loss.item()
 
-                print(f"Epoch {idx+ 1}/{num_epochs} ...... val_loss: {loss:.3f}")
+                val_process_bar.set_description(f"Epoch {idx + 1}/{epoch}......validation loss: {loss:.3f}")
             total_val_loss.append(epoch_val_loss / (idx + 1))
-    print("!!!Done!!!")
 
-    # visualize
-    import matplotlib.pyplot as plt
-    
-    plt.figure(figsize=(13, 5))
-    plt.plot(total_train_loss);
-    plt.plot(total_val_loss);
-    plt.show();
+    # save the training and validation curve
+    plt.figure(figsize=(10, 5))
+    plt.plot(total_train_loss, label="training loss")
+    plt.plot(total_val_loss, label="validation loss")
+    plt.grid(linestyle="--", alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("train_validation.pdf")
 
-    # test 
-    img_dirs = [ "dataset/images/2022"]
-    yield_dirs = [ "dataset/yields/2022" ]
-    defol_days = [ "202020719" ]
+    # test
+    dataset = CottonDataset(img_dir=test_img_dir, yield_dir=test_yield_dir, defol=test_defol_day, normalize=True, img_transform=transform)
+    test_loader = DataLoader(dataset=dataset, shuffle=False, num_workers=4)
 
-    test_dataset = CottonDataset(img_dir=img_dir, yield_dir=yield_dir, defol=defol_day, normalize=True, img_transform=Normalize((0), (255)))
-    test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=False)
-
-    total_test_loss = []
-    epoch_test_loss = 0.0
+    model.eval()
+    # test processing
+    preds = []
+    targets = []
     with torch.no_grad():
-        for idx, data in enumerate(val_loader, 0):
-            inputs, target = data
+        for inputs, target in tqdm(test_loader):
             inputs = inputs.to(device, dtype=torch.float32)
-            target = target.to(device, dtype=torch.float32)
+            targets.append(target.item())
 
-            outputs = model(inputs)
-            loss = loss_fn(outputs.view_as(target), target)
-            epoch_test_loss += loss.item()
+            pred = model(inputs)
+            preds.append(pred.item())
 
-            print(f"Epoch {idx+ 1}/{num_epochs} ...... val_loss: {loss:.3f}")
-    total_test_loss.append(epoch_test_loss / (idx + 1))
+    preds = np.array(preds).reshape(-1, 1)
+    targets = np.array(targets).reshape(-1, 1)
 
-    plt.figure(figsize=(13, 5))
-    plt.plot(total_test_loss);
-    plt.show();
+    # save the test result
+    plt.figure(figsize=(5, 5))
+    plt.scatter(preds, targets, facecolors="none", edgecolors="steelblue", alpha=0.5);
+    plt.plot([0, 38], [0, 38], linestyle="--", color="red");
+    plt.axis("square");
+    plt.grid(linestyle="--", alpha=0.5);
+    plt.title(f"mse: {mean_squared_error(targets, preds):.3f}")
+    plt.xlabel("predictions")
+    plt.ylabel("observations")
+    plt.tight_layout()
+    plt.savefig("preds_targets.pdf")
+    print("!!!done!!!") 
+
+
+
