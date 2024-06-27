@@ -60,13 +60,13 @@ if __name__ == "__main__":
     ])
 
     # training data
-    img_dirs = [ "../dataset/images/2020",  "../dataset/images/2021"]
-    yield_dirs = [ "../dataset/yields/2020", "../dataset/yields/2021" ]
+    img_dirs = [ "dataset/images/2020",  "dataset/images/2021"]
+    yield_dirs = [ "dataset/yields/2020", "dataset/yields/2021" ]
     defol_days = [ "20200713", "20210727" ]
 
    # test data 
-    test_img_dir = "../dataset/images/2022" 
-    test_yield_dir = "../dataset/yields/2022"
+    test_img_dir = "dataset/images/2022" 
+    test_yield_dir = "dataset/yields/2022"
     test_defol_day = "20220719" 
     #############################################################################################
 
@@ -93,6 +93,10 @@ if __name__ == "__main__":
     total_train_loss = []
     total_val_loss = []
     model.to(device)
+
+    # early stopping
+    best_loss = float("inf")
+    patience = 5
 
     for epoch in trange(num_epochs):
         # training process
@@ -136,6 +140,21 @@ if __name__ == "__main__":
                 val_process_bar.set_description(f"Epoch {idx + 1}/{epoch}......validation loss: {loss:.3f}")
             total_val_loss.append(epoch_val_loss / (idx + 1))
 
+        # early stopping
+        if epoch_val_loss < best_loss:
+            best_loss = epoch_val_loss
+            patience = 5
+        else:
+            patience -= 1
+            if patience == 0:
+                break
+
+    # save model
+    torch.save(
+        { "state_dict": model.state_dict() },
+        "model.pt",
+    )    
+
     # save the training and validation curve
     plt.figure(figsize=(10, 5))
     plt.plot(total_train_loss, label="training loss")
@@ -149,6 +168,9 @@ if __name__ == "__main__":
     dataset = CottonDataset(img_dir=test_img_dir, yield_dir=test_yield_dir, defol=test_defol_day, normalize=True, img_transform=transform)
     test_loader = DataLoader(dataset=dataset, shuffle=False, num_workers=4)
 
+    # load model
+    model_state_dict = torch.load("model.pt")
+    model.load_state_dict(model_state_dict["state_dict"])
     model.eval()
     # test processing
     preds = []
