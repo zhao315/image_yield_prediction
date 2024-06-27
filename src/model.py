@@ -142,16 +142,16 @@ if __name__ == "__main__":
 
         # early stopping
         if epoch_val_loss < best_loss:
-            best_loss = epoch_val_loss
+            best_loss = epoch_val_loss                
+            # save model
+            torch.save(
+                { "state_dict": model.state_dict() },
+                "model.pt",
+              )    
             patience = 5
         else:
             patience -= 1
             if patience == 0:
-                # save model
-                torch.save(
-                    { "state_dict": model.state_dict() },
-                    "model.pt",
-                )    
             break
 
     # save the training and validation curve
