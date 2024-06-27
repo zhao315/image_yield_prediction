@@ -147,13 +147,12 @@ if __name__ == "__main__":
         else:
             patience -= 1
             if patience == 0:
-                break
-
-    # save model
-    torch.save(
-        { "state_dict": model.state_dict() },
-        "model.pt",
-    )    
+                # save model
+                torch.save(
+                    { "state_dict": model.state_dict() },
+                    "model.pt",
+                )    
+            break
 
     # save the training and validation curve
     plt.figure(figsize=(10, 5))
