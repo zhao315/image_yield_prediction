@@ -1,0 +1,8 @@
+{
+    "full_data_dir": ["dataset/images/2020", "dataset/images/2021"],
+    "full_yield_dir": ["dataset/yields/2020", "dataset/yields/2021"],
+    "full_defoliation_day": ["20200713", "20210722"],
+    "test_data_dir": ["dataset/images/2022"],
+    "test_yield_dir": ["dataset/yields/2022"],
+    "test_defoliation_day": ["20220719"]
+}

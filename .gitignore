@@ -4,3 +4,4 @@
 ## - each line in a gitignore file specifies a pattern
 
 dataset/
+__pycache__/
